@@ -41,6 +41,27 @@
 
 #include "iochannel.h"
 
+#ifdef __APPLE__
+#include <sys/types.h>
+#define CMGROUP_MAX 16
+
+/*
+ * Credentials structure, used to verify the identity of a peer
+ * process that has sent us a message. This is allocated by the
+ * peer process but filled in by the kernel. This prevents the
+ * peer from lying about its identity. (Note that cmcred_groups[0]
+ * is the effective GID.)
+ */
+struct cmsgcred {
+	pid_t   cmcred_pid;             /* PID of sending process */
+	uid_t   cmcred_uid;             /* real UID of sending process */
+	uid_t   cmcred_euid;            /* effective UID of sending process */
+	gid_t   cmcred_gid;             /* real GID of sending process */
+	short   cmcred_ngroups;         /* number or groups */
+	gid_t   cmcred_groups[CMGROUP_MAX];     /* groups */
+};
+#endif
+
 struct pa_iochannel {
     int ifd, ofd;
     int ifd_type, ofd_type;
@@ -261,7 +282,7 @@ ssize_t pa_iochannel_read(pa_iochannel*io, void*data, size_t l) {
 
 #ifdef HAVE_CREDS
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__GNU__)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__GNU__) || defined(__APPLE__)
 typedef struct cmsgcred pa_ucred_t;
 #define SCM_CREDENTIALS SCM_CREDS
 #else
@@ -299,7 +320,8 @@ int pa_iochannel_creds_enable(pa_iochannel *io) {
     pa_assert(io->ifd >= 0);
 
 #if !defined(__FreeBSD__) && !defined(__FreeBSD_kernel__) && !defined(__GNU__)
-    if (setsockopt(io->ifd, SOL_SOCKET, SO_PASSCRED, &t, sizeof(t)) < 0) {
+//    if (setsockopt(io->ifd, SOL_SOCKET, SO_PASSCRED, &t, sizeof(t)) < 0) {
+    if (setsockopt(io->ifd, SOL_SOCKET, LOCAL_PEERCRED, &t, sizeof(t)) < 0) {
         pa_log_error("setsockopt(SOL_SOCKET, SO_PASSCRED): %s", pa_cstrerror(errno));
         return -1;
     }
@@ -334,7 +356,7 @@ ssize_t pa_iochannel_write_with_creds(pa_iochannel*io, const void*data, size_t l
 
     u = (pa_ucred_t*) CMSG_DATA(&cmsg.hdr);
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__GNU__)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__GNU__) || defined(__APPLE__)
     // the kernel fills everything
 #else
     u->pid = getpid();
@@ -457,7 +479,7 @@ ssize_t pa_iochannel_read_with_ancil_data(pa_iochannel*io, void*data, size_t l, 
                 pa_ucred_t u;
                 pa_assert(cmh->cmsg_len == CMSG_LEN(sizeof(pa_ucred_t)));
                 memcpy(&u, CMSG_DATA(cmh), sizeof(pa_ucred_t));
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__GNU__)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__GNU__) || defined(__APPLE__)
                 ancil_data->creds.gid = u.cmcred_gid;
                 ancil_data->creds.uid = u.cmcred_uid;
 #else

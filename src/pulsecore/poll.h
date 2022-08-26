@@ -57,7 +57,7 @@ struct pollfd {
 
 #endif /* HAVE_POLL_H */
 
-#if defined(HAVE_POLL_H) && !defined(OS_IS_DARWIN)
+#if defined(HAVE_POLL_H)
 #define pa_poll(fds,nfds,timeout) poll((fds),(nfds),(timeout))
 #else
 int pa_poll(struct pollfd *fds, unsigned long nfds, int timeout);

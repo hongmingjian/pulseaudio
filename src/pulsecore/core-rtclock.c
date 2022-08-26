@@ -67,10 +67,13 @@ struct timeval *pa_rtclock_get(struct timeval *tv) {
 
 #if defined(OS_IS_DARWIN)
     uint64_t val, abs_time = mach_absolute_time();
-    Nanoseconds nanos;
 
-    nanos = AbsoluteToNanoseconds(*(AbsoluteTime *) &abs_time);
-    val = *(uint64_t *) &nanos;
+	//https://developer.apple.com/library/archive/qa/qa1398/_index.html
+	static mach_timebase_info_data_t    sTimebaseInfo;
+	if ( sTimebaseInfo.denom == 0 ) {
+		(void) mach_timebase_info(&sTimebaseInfo);
+	}
+    val = abs_time * sTimebaseInfo.numer / sTimebaseInfo.denom;
 
     tv->tv_sec = val / PA_NSEC_PER_SEC;
     tv->tv_usec = (val % PA_NSEC_PER_SEC) / PA_NSEC_PER_USEC;

@@ -31,26 +31,46 @@
 #include "semaphore.h"
 
 struct pa_semaphore {
+#ifdef OS_IS_DARWIN
+    sem_t *sem;
+	char name[32];
+#else
     sem_t sem;
+#endif
 };
 
 pa_semaphore* pa_semaphore_new(unsigned value) {
     pa_semaphore *s;
 
     s = pa_xnew(pa_semaphore, 1);
+#ifdef OS_IS_DARWIN
+	sprintf(s->name, "%p", s);
+	pa_assert_se((s->sem = sem_open(s->name,  O_CREAT|O_EXCL, 0644, value)) != SEM_FAILED);
+#else
     pa_assert_se(sem_init(&s->sem, 0, value) == 0);
+#endif
+
     return s;
 }
 
 void pa_semaphore_free(pa_semaphore *s) {
     pa_assert(s);
+#ifdef OS_IS_DARWIN
+	sem_close(s->sem);
+	sem_unlink(s->name);
+#else
     pa_assert_se(sem_destroy(&s->sem) == 0);
+#endif
     pa_xfree(s);
 }
 
 void pa_semaphore_post(pa_semaphore *s) {
     pa_assert(s);
+#ifdef OS_IS_DARWIN
+    pa_assert_se(sem_post(s->sem) == 0);
+#else
     pa_assert_se(sem_post(&s->sem) == 0);
+#endif
 }
 
 void pa_semaphore_wait(pa_semaphore *s) {
@@ -58,7 +78,11 @@ void pa_semaphore_wait(pa_semaphore *s) {
     pa_assert(s);
 
     do {
+#ifdef OS_IS_DARWIN
+        ret = sem_wait(s->sem);
+#else
         ret = sem_wait(&s->sem);
+#endif
     } while (ret < 0 && errno == EINTR);
 
     pa_assert(ret == 0);

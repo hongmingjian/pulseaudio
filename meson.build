@@ -186,8 +186,10 @@ endif
 # FIXME: This was not tested. Maybe some flags should better be CFLAGS,
 # rather than ending up in the config.h file?
 if host_machine.system() == 'darwin'
+  cdata.set('HAVE_COREAUDIO', 1)
   cdata.set('OS_IS_DARWIN', 1)
   cdata.set('_DARWIN_C_SOURCE', '200112L') # Needed to get NSIG on Mac OS
+  coreaudio_dep = dependency('appleframeworks', modules: ['CoreAudio'])
 elif host_machine.system() == 'windows'
   cdata.set('OS_IS_WIN32', 1)
   cdata.set('HAVE_WINDOWS_H', 1)
@@ -427,8 +429,6 @@ cdata.set('MESON_BUILD', 1)
 # On other systems, we don't really know how to do that, but it's welcome if somebody can tell.
 # Windows doesn't support this flag.
 if host_machine.system() != 'windows'
-  nodelete_link_args = ['-Wl,-z,nodelete']
-else
   nodelete_link_args = []
 endif
 
@@ -990,7 +990,7 @@ summary += [
   'Enable Alsa:                   @0@'.format(alsa_dep.found()),
   'Enable Jack:                   @0@'.format(jack_dep.found()),
   'Enable LIRC:                   @0@'.format(lirc_dep.found()),
-#  'Enable CoreAudio:              @0@'.format(${ENABLE_COREAUDIO}),
+  'Enable CoreAudio:              @0@'.format(cdata.has('HAVE_COREAUDIO')),
 #  'Enable Solaris:                @0@'.format(${ENABLE_SOLARIS}),
 #  'Enable WaveOut:                @0@'.format(${ENABLE_WAVEOUT}),
   'Enable GSettings:              @0@'.format(gio_dep.found()),
